@@ -13,7 +13,6 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-
 const port = process.env.PORT || 3000;
 const API_KEY = process.env.WEATHER_API_KEY;
 const BASE_URL = "https://api.openweathermap.org/data/2.5/weather";
@@ -77,6 +76,9 @@ app.get('/weather', checkCache, async (req, res) => {
             
         });
 
+        const timezoneOffset = response.data.timezone; // Timezone offset in seconds
+        const localTime = getLocalTime(timezoneOffset); // Get local time from offset
+
 //    console.log(`weather data received: ${JSON.stringify(response.data)}`);
 
 
@@ -84,8 +86,9 @@ app.get('/weather', checkCache, async (req, res) => {
             city: response.data.name,
             temperature: response.data.main.temp,
             description: response.data.weather[0].description,
-            humidity: response.data.main.humidity
-            
+            humidity: response.data.main.humidity,
+            timezone: formatTimezone(response.data.timezone), // Convert timezone offset to readable format
+            current_time: localTime // Add local time to response
 
         };
         // store data in Redis cache for 1 hour (3600 seconds)
@@ -106,6 +109,20 @@ app.get('/weather', checkCache, async (req, res) => {
     app.listen(port, () => {
         console.log(`Weather API running on port ${port}`);
     });
+
+    function formatTimezone(offset) {
+        const hours = offset / 3600; // Convert seconds to hours
+        return `UTC ${hours >= 0 ? '+' : ''}${hours}`;
+    }
+
+    // Convert UTC time to local time based on timezone offset
+function getLocalTime(offset) {
+    const now = new Date();
+    const localTime = new Date(now.getTime() + offset * 1000); // Convert seconds to milliseconds
+    return localTime.toISOString().replace("T", " ").split(".")[0]; // Format as "YYYY-MM-DD HH:MM:SS"
+}
+
+
 
 
 // Simple endpoint to return a hardcoded weather response
